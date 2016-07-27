@@ -1,6 +1,8 @@
 <?php
 
-namespace Stormpath\Http\Authc;
+namespace Stormpath\Http\Psr7;
+
+use Psr\Http\Message\RequestInterface;
 
 /*
  * Copyright 2016 Stormpath, Inc.
@@ -17,18 +19,14 @@ namespace Stormpath\Http\Authc;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use Psr\Http\Message\RequestInterface;
-use Stormpath\ApiKey;
-
-interface RequestSigner
+interface Psr7RequestExecutor
 {
     /**
-     * Signs the request
+     * Executes a PSR-7 Request
      *
-     * @param  RequestInterface $request The request before it's signed
-     * @param  ApiKey           $apiKey  Your API key
-     * @return RequestInterface          A signed copy of the request
+     * @param  RequestInterface $reques
+     * @param  integer          $redirectsLimit
+     * @return Psr\Http\Message\ResponseInterface
      */
-    public function sign(RequestInterface $request, ApiKey $apiKey);
+    public function executeRequest(RequestInterface $request);
 }

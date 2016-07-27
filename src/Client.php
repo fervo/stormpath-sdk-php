@@ -18,27 +18,26 @@ namespace Stormpath;
  * limitations under the License.
  */
 
+use Cache\Taggable\TaggablePSR6PoolAdapter;
 use Stormpath\Cache\CacheManager;
-use Stormpath\Cache\PSR6CacheManagerInterface;
 use Stormpath\Cache\CachePSR6Adapter;
+use Stormpath\Cache\PSR6CacheManagerInterface;
 use Stormpath\DataStore\DefaultDataStore;
 use Stormpath\Exceptions\Cache\InvalidCacheManagerException;
 use Stormpath\Exceptions\Cache\InvalidLegacyCacheManagerException;
-use Stormpath\Http\Authc\RequestSigner;
-use Stormpath\Http\HttpClientRequestExecutor;
+use Stormpath\Http\Psr7\Psr7RequestExecutor;
 use Stormpath\Resource\Resource;
 use Stormpath\Stormpath;
 use Stormpath\Util\Magic;
-use Cache\Taggable\TaggablePSR6PoolAdapter;
 
 function toObject($properties)
 {
     if (is_array($properties)) {
         /*
-        * Return array converted to object
-        * Using __FUNCTION__ (Magic constant)
-        * for recursive call
-        */
+         * Return array converted to object
+         * Using __FUNCTION__ (Magic constant)
+         * for recursive call
+         */
         return (object) array_map(__FUNCTION__, $properties);
     }
 
@@ -111,26 +110,25 @@ class Client extends Magic
      * @param $baseUrl optional parameter for specifying the base URL when not using the default one
      *         (https://api.stormpath.com/v1).
      */
-    public function __construct(ApiKey $apiKey, $cacheManager, $cacheManagerOptions, $baseUrl = null, RequestSigner $requestSigner = null)
+    public function __construct(ApiKey $apiKey, $cacheManager, $cacheManagerOptions, $baseUrl = null, Psr7RequestExecutor $requestExecutor = null)
     {
         parent::__construct();
         self::$cacheManager = $cacheManager;
         self::$cacheManagerOptions = $cacheManagerOptions;
 
-        $requestExecutor = new HttpClientRequestExecutor($requestSigner);
-
-        if (is_string($cacheManager)) { // Legacy cache manager
+        if (is_string($cacheManager)) {
+            // Legacy cache manager
             $legacyCache = new $cacheManager($cacheManagerOptions);
 
-            if ($legacyCache instanceOf CacheManager) {
+            if ($legacyCache instanceof CacheManager) {
                 $cache = $legacyCache->getCache();
                 $cache = new CachePSR6Adapter($cache);
-            } else if ($legacyCache instanceOf PSR6CacheManagerInterface) {
+            } else if ($legacyCache instanceof PSR6CacheManagerInterface) {
                 $cache = $legacyCache->getCachePool($cacheManagerOptions);
             } else {
                 throw new InvalidLegacyCacheManagerException("Legacy cache manager is not an instance of Stormpath\Cache\CacheManager");
             }
-        } elseif ($cacheManager instanceOf PSR6CacheManagerInterface) {
+        } elseif ($cacheManager instanceof PSR6CacheManagerInterface) {
             $cache = $cacheManager->getCachePool($cacheManagerOptions);
         } else {
             throw new InvalidCacheManagerException("Invalid cache manager");
@@ -144,8 +142,7 @@ class Client extends Magic
     {
 
         $resultingHref = $href;
-        if ($path and stripos($href, $path) === false)
-        {
+        if ($path and stripos($href, $path) === false) {
             $resultingHref = is_numeric(stripos($href, $path)) ? $href : "$path/$href";
         }
 
@@ -180,18 +177,17 @@ class Client extends Magic
 
     public static function getInstance()
     {
-        if (!self::$instance)
-        {
+        if (!self::$instance) {
             $builder = new ClientBuilder();
             self::$instance = $builder->setApiKeyFileLocation(self::$apiKeyFileLocation)->
-                              setApiKeyProperties(self::$apiKeyProperties)->
-                              setApiKeyIdPropertyName(self::$apiKeyIdPropertyName)->
-                              setApiKeySecretPropertyName(self::$apiKeySecretPropertyName)->
-                              setCacheManager(self::$cacheManager)->
-                              setCacheManagerOptions(self::$cacheManagerOptions)->
-                              setBaseURL(self::$baseUrl)->
-                              setAuthenticationScheme(self::$authenticationScheme)->
-                              build();
+                setApiKeyProperties(self::$apiKeyProperties)->
+                setApiKeyIdPropertyName(self::$apiKeyIdPropertyName)->
+                setApiKeySecretPropertyName(self::$apiKeySecretPropertyName)->
+                setCacheManager(self::$cacheManager)->
+                setCacheManagerOptions(self::$cacheManagerOptions)->
+                setBaseURL(self::$baseUrl)->
+                setAuthenticationScheme(self::$authenticationScheme)->
+                build();
         }
 
         return self::$instance;
@@ -219,10 +215,7 @@ class Client extends Magic
 
     public static function tearDown()
     {
-        static::$instance = NULL;
+        static::$instance = null;
     }
-
-
-
 
 }

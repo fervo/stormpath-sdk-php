@@ -2,6 +2,8 @@
 
 namespace Stormpath\Util;
 
+use Psr\Http\Message\UriInterface;
+
 /*
  * Copyright 2016 Stormpath, Inc.
  *
@@ -29,33 +31,30 @@ class RequestUtils
      * @param $parsedUrl
      * @return true if the specified parsed url is using a non-standard port, false otherwise
      */
-    public static function isDefaultPort(array $parsedUrl)
+    public static function isDefaultPort(UriInterface $uri)
     {
-        $scheme = strtolower($parsedUrl['scheme']);
-        $port = array_key_exists('port', $parsedUrl) ? $parsedUrl['port'] : $scheme == 'https' ? 443 : 0;
+        $scheme = strtolower($uri->getScheme());
+        $port = $uri->getPort() ?: $scheme == 'https' ? 443 : 0;
         return $port <= 0 or ($port == 80 and $scheme == 'http') or ($port == 443 and $scheme == 'https');
     }
 
     public static function encodeUrl($value, $path, $canonical)
     {
-        if (is_numeric($value))
-        {
+        if (is_numeric($value)) {
             return strval($value);
         }
 
         $encoded = urlencode($value);
 
-        if ($canonical)
-        {
+        if ($canonical) {
             $encoded = strtr(
-                           strtr(
-                               strtr($encoded,
-                                   array('+' => '%20')),
-                                   array('*' =>'%2A')),
-                                   array('%7E' => '~'));
+                strtr(
+                    strtr($encoded,
+                        array('+' => '%20')),
+                    array('*' => '%2A')),
+                array('%7E' => '~'));
 
-            if ($path)
-            {
+            if ($path) {
                 $encoded = strtr($encoded, array('%2F' => '/'));
             }
         }

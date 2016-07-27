@@ -18,31 +18,31 @@ namespace Stormpath\Http\Authc;
  * limitations under the License.
  */
 
+use Psr\Http\Message\RequestInterface;
 use Stormpath\ApiKey;
-use Stormpath\Http\Request;
 use Stormpath\Stormpath;
 use Stormpath\Util\RequestUtils;
 use Stormpath\Util\UUID;
 
 class SAuthc1RequestSigner implements RequestSigner
 {
-    const DEFAULT_ENCODING       = 'UTF-8';
-    const DEFAULT_ALGORITHM      = 'SHA256';
-    const HOST_HEADER            = 'Host';
-    const AUTHORIZATION_HEADER   = 'Authorization';
-    const STORMPATH_DATE_HEADER  = 'X-Stormpath-Date';
-    const ID_TERMINATOR          = 'sauthc1_request';
-    const ALGORITHM              = 'HMAC-SHA-256';
-    const AUTHENTICATION_SCHEME  = Stormpath::SAUTHC1_AUTHENTICATION_SCHEME;
-    const SAUTHC1_ID             = 'sauthc1Id';
+    const DEFAULT_ENCODING = 'UTF-8';
+    const DEFAULT_ALGORITHM = 'SHA256';
+    const HOST_HEADER = 'Host';
+    const AUTHORIZATION_HEADER = 'Authorization';
+    const STORMPATH_DATE_HEADER = 'X-Stormpath-Date';
+    const ID_TERMINATOR = 'sauthc1_request';
+    const ALGORITHM = 'HMAC-SHA-256';
+    const AUTHENTICATION_SCHEME = Stormpath::SAUTHC1_AUTHENTICATION_SCHEME;
+    const SAUTHC1_ID = 'sauthc1Id';
     const SAUTHC1_SIGNED_HEADERS = 'sauthc1SignedHeaders';
-    const SAUTHC1_SIGNATURE      = 'sauthc1Signature';
-    const DATE_FORMAT            = 'Ymd';
-    const TIMESTAMP_FORMAT       = 'Ymd\THms\Z';
-    const TIME_ZONE              = 'UTC';
-    const NL                     = "\n";
+    const SAUTHC1_SIGNATURE = 'sauthc1Signature';
+    const DATE_FORMAT = 'Ymd';
+    const TIMESTAMP_FORMAT = 'Ymd\THms\Z';
+    const TIME_ZONE = 'UTC';
+    const NL = "\n";
 
-    public function sign(Request $request, ApiKey $apiKey)
+    public function sign(RequestInterface $request, ApiKey $apiKey)
     {
 
         date_default_timezone_set(self::TIME_ZONE);
@@ -52,49 +52,45 @@ class SAuthc1RequestSigner implements RequestSigner
 
         $nonce = UUID::generate(UUID::UUID_RANDOM, UUID::FMT_STRING);
 
-        $parsedUrl = parse_url($request->getResourceUrl());
+        $request = $this->sortQueryParameters($request);
+        $uri = $request->getUri();
 
         // SAuthc1 requires that we sign the Host header so we
         // have to have it in the request by the time we sign.
-        $hostHeader = $parsedUrl['host'];
+        $hostHeader = $uri->getHost();
 
-        if (!RequestUtils::isDefaultPort($parsedUrl))
-        {
-            $hostHeader .= ':' . $parsedUrl['port'];
+        if (!RequestUtils::isDefaultPort($uri)) {
+            $hostHeader .= ':' . $uri->getPort();
         }
 
-        $requestHeaders = $request->getHeaders();
-
-        unset($requestHeaders[self::STORMPATH_DATE_HEADER]);
-        unset($requestHeaders[self::AUTHORIZATION_HEADER]);
-
-        $requestHeaders[self::HOST_HEADER] = $hostHeader;
-        $requestHeaders[self::STORMPATH_DATE_HEADER] = $timeStamp;
-
-        $request->setHeaders($requestHeaders);
+        $request = $request
+            ->withoutHeader(self::AUTHORIZATION_HEADER)
+            ->withHeader(self::HOST_HEADER, $hostHeader)
+            ->withHeader(self::STORMPATH_DATE_HEADER, $timeStamp)
+        ;
 
         $method = $request->getMethod();
-        $canonicalResourcePath = $this->canonicalizeResourcePath($parsedUrl['path']);
-        $canonicalQueryString = $this->canonicalizeQueryString($request);
+        $canonicalResourcePath = $this->canonicalizeResourcePath($uri->getPath());
+        $canonicalQueryString = $uri->getQuery();
         $canonicalHeaderString = $this->canonicalizeHeaders($request);
         $signedHeadersString = $this->getSignedHeaders($request);
         $requestPayloadHashHex = $this->toHex($this->hashText($this->getRequestPayload($request)));
 
         $canonicalRequest = $method . self::NL .
-                            $canonicalResourcePath . self::NL .
-                            $canonicalQueryString . self::NL .
-                            $canonicalHeaderString . self::NL .
-                            $signedHeadersString . self::NL .
-                            $requestPayloadHashHex;
+        $canonicalResourcePath . self::NL .
+        $canonicalQueryString . self::NL .
+        $canonicalHeaderString . self::NL .
+        $signedHeadersString . self::NL .
+            $requestPayloadHashHex;
 
         $id = $apiKey->getId() . '/' . $dateStamp . '/' . $nonce . '/' . self::ID_TERMINATOR;
 
         $canonicalRequestHashHex = $this->toHex($this->hashText($canonicalRequest));
 
         $stringToSign = self::ALGORITHM . self::NL .
-                        $timeStamp . self::NL .
-                        $id . self::NL .
-                        $canonicalRequestHashHex;
+        $timeStamp . self::NL .
+        $id . self::NL .
+            $canonicalRequestHashHex;
 
         // SAuthc1 uses a series of derived keys, formed by hashing different pieces of data
         $kSecret = $this->toUTF8(self::AUTHENTICATION_SCHEME . $apiKey->getSecret());
@@ -106,14 +102,13 @@ class SAuthc1RequestSigner implements RequestSigner
         $signatureHex = $this->toHex($signature);
 
         $authorizationHeader = self::AUTHENTICATION_SCHEME . ' ' .
-                               $this->createNameValuePair(self::SAUTHC1_ID, $id) . ', ' .
-                               $this->createNameValuePair(self::SAUTHC1_SIGNED_HEADERS, $signedHeadersString) . ', ' .
-                               $this->createNameValuePair(self::SAUTHC1_SIGNATURE, $signatureHex);
+        $this->createNameValuePair(self::SAUTHC1_ID, $id) . ', ' .
+        $this->createNameValuePair(self::SAUTHC1_SIGNED_HEADERS, $signedHeadersString) . ', ' .
+        $this->createNameValuePair(self::SAUTHC1_SIGNATURE, $signatureHex);
 
-        $requestHeaders[self::AUTHORIZATION_HEADER] = $authorizationHeader;
-
-        $request->setHeaders($requestHeaders);
-
+        return $request
+            ->withHeader(self::AUTHORIZATION_HEADER, $authorizationHeader)
+        ;
     }
 
     public function toHex($data)
@@ -122,9 +117,15 @@ class SAuthc1RequestSigner implements RequestSigner
         return $result[1];
     }
 
-    protected function canonicalizeQueryString(Request $request)
+    public function sortQueryParameters(RequestInterface $request)
     {
-       return $request->toStrQueryString(true);
+        $uri = $request->getUri();
+        $queryString = $uri->getQuery();
+        $params = explode('&', $queryString);
+        sort($params);
+        $newQueryString = implode('&', $params);
+        $newUri = $uri->withQuery($newQueryString);
+        return $request->withUri($newUri);
     }
 
     protected function hashText($text)
@@ -144,19 +145,17 @@ class SAuthc1RequestSigner implements RequestSigner
         return mb_convert_encoding($str, self::DEFAULT_ENCODING);
     }
 
-    protected function getRequestPayload(Request $request)
+    protected function getRequestPayload(RequestInterface $request)
     {
         return $this->getRequestPayloadWithoutQueryParams($request);
     }
 
-
-    protected function getRequestPayloadWithoutQueryParams(Request $request)
+    protected function getRequestPayloadWithoutQueryParams(RequestInterface $request)
     {
         $result = '';
 
-        if ($request->getBody())
-        {
-            $result = $request->getBody();
+        if ($request->getBody()) {
+            $result = (string) $request->getBody();
         }
 
         return $result;
@@ -164,31 +163,29 @@ class SAuthc1RequestSigner implements RequestSigner
 
     private function createNameValuePair($name, $value)
     {
-        return $name . '=' .$value;
+        return $name . '=' . $value;
     }
 
     private function canonicalizeResourcePath($resourcePath)
     {
-        if ($resourcePath)
-        {
+        if ($resourcePath) {
             return RequestUtils::encodeUrl($resourcePath, true, true);
-        } else
-        {
+        } else {
             return '/';
         }
     }
 
-    private function canonicalizeHeaders(Request $request)
+    private function canonicalizeHeaders(RequestInterface $request)
     {
         $requestHeaders = $request->getHeaders();
         ksort($requestHeaders);
-        $request->setHeaders($requestHeaders);
 
         $result = '';
 
-        foreach($request->getHeaders() as $key => $val)
-        {
-            $result .= strtolower($key) . ':' . $val;
+        foreach ($requestHeaders as $key => $val) {
+            foreach ($val as $value) {
+                $result .= strtolower($key) . ':' . $value;
+            }
 
             $result .= self::NL;
         }
@@ -196,18 +193,17 @@ class SAuthc1RequestSigner implements RequestSigner
         return $result;
     }
 
-    private function getSignedHeaders(Request $request)
+    private function getSignedHeaders(RequestInterface $request)
     {
+        $requestHeaders = $request->getHeaders();
+        ksort($requestHeaders);
 
         $result = '';
 
-        foreach($request->getHeaders() as $key => $val)
-        {
-            if ($result)
-            {
+        foreach ($requestHeaders as $key => $val) {
+            if ($result) {
                 $result .= ';' . $key;
-            } else
-            {
+            } else {
                 $result .= $key;
             }
         }
