@@ -18,13 +18,14 @@ namespace Stormpath\Http\Authc;
  * limitations under the License.
  */
 
+use Http\Message\Authentication;
 use Psr\Http\Message\RequestInterface;
 use Stormpath\ApiKey;
 use Stormpath\Stormpath;
 use Stormpath\Util\RequestUtils;
 use Stormpath\Util\UUID;
 
-class SAuthc1RequestSigner implements RequestSigner
+class SAuthc1Authentication implements Authentication
 {
     const DEFAULT_ENCODING = 'UTF-8';
     const DEFAULT_ALGORITHM = 'SHA256';
@@ -42,9 +43,15 @@ class SAuthc1RequestSigner implements RequestSigner
     const TIME_ZONE = 'UTC';
     const NL = "\n";
 
-    public function sign(RequestInterface $request, ApiKey $apiKey)
-    {
+    private $apiKey;
 
+    public function __construct(ApiKey $apiKey)
+    {
+        $this->apiKey = $apiKey;
+    }
+
+    public function authenticate(RequestInterface $request)
+    {
         date_default_timezone_set(self::TIME_ZONE);
         $date = new \DateTime();
         $timeStamp = $date->format(self::TIMESTAMP_FORMAT);
@@ -52,7 +59,6 @@ class SAuthc1RequestSigner implements RequestSigner
 
         $nonce = UUID::generate(UUID::UUID_RANDOM, UUID::FMT_STRING);
 
-        $request = $this->sortQueryParameters($request);
         $uri = $request->getUri();
 
         // SAuthc1 requires that we sign the Host header so we
@@ -71,7 +77,7 @@ class SAuthc1RequestSigner implements RequestSigner
 
         $method = $request->getMethod();
         $canonicalResourcePath = $this->canonicalizeResourcePath($uri->getPath());
-        $canonicalQueryString = $uri->getQuery();
+        $canonicalQueryString = $this->canonicalizeQueryString($uri->getQuery());
         $canonicalHeaderString = $this->canonicalizeHeaders($request);
         $signedHeadersString = $this->getSignedHeaders($request);
         $requestPayloadHashHex = $this->toHex($this->hashText($this->getRequestPayload($request)));
@@ -83,7 +89,7 @@ class SAuthc1RequestSigner implements RequestSigner
         $signedHeadersString . self::NL .
             $requestPayloadHashHex;
 
-        $id = $apiKey->getId() . '/' . $dateStamp . '/' . $nonce . '/' . self::ID_TERMINATOR;
+        $id = $this->apiKey->getId() . '/' . $dateStamp . '/' . $nonce . '/' . self::ID_TERMINATOR;
 
         $canonicalRequestHashHex = $this->toHex($this->hashText($canonicalRequest));
 
@@ -93,7 +99,7 @@ class SAuthc1RequestSigner implements RequestSigner
             $canonicalRequestHashHex;
 
         // SAuthc1 uses a series of derived keys, formed by hashing different pieces of data
-        $kSecret = $this->toUTF8(self::AUTHENTICATION_SCHEME . $apiKey->getSecret());
+        $kSecret = $this->toUTF8(self::AUTHENTICATION_SCHEME . $this->apiKey->getSecret());
         $kDate = $this->internalSign($dateStamp, $kSecret, self::DEFAULT_ALGORITHM);
         $kNonce = $this->internalSign($nonce, $kDate, self::DEFAULT_ALGORITHM);
         $kSigning = $this->internalSign(self::ID_TERMINATOR, $kNonce, self::DEFAULT_ALGORITHM);
@@ -106,9 +112,11 @@ class SAuthc1RequestSigner implements RequestSigner
         $this->createNameValuePair(self::SAUTHC1_SIGNED_HEADERS, $signedHeadersString) . ', ' .
         $this->createNameValuePair(self::SAUTHC1_SIGNATURE, $signatureHex);
 
-        return $request
+        $req = $request
             ->withHeader(self::AUTHORIZATION_HEADER, $authorizationHeader)
         ;
+
+        return $req;
     }
 
     public function toHex($data)
@@ -173,6 +181,28 @@ class SAuthc1RequestSigner implements RequestSigner
         } else {
             return '/';
         }
+    }
+
+    public function canonicalizeQueryString($queryString)
+    {
+        if ($queryString === '') {
+            return '';
+        }
+
+        $canonicalPairs = [];
+
+        $kvs = explode('&', $queryString);
+        foreach ($kvs as $kv) {
+            $pair = explode('=', $kv, 2);
+            $key = urldecode($pair[0]);
+            $value = isset($pair[1]) ? urldecode($pair[1]) : '';
+
+            $canonicalPairs[] = RequestUtils::encodeUrl($key, false, true) . '=' . RequestUtils::encodeUrl($value, false, true);
+        }
+
+        sort($canonicalPairs);
+
+        return implode('&', $canonicalPairs);
     }
 
     private function canonicalizeHeaders(RequestInterface $request)

@@ -17,7 +17,6 @@ namespace Stormpath;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use Http\Discovery\HttpClientDiscovery;
 use Stormpath\Cache\ArrayCacheManager;
 use Stormpath\Cache\MemcachedCacheManager;
 use Stormpath\Cache\NullCacheManager;
@@ -25,7 +24,6 @@ use Stormpath\Cache\PSR6CacheManagerInterface;
 use Stormpath\Cache\RedisCacheManager;
 use Stormpath\Http\DefaultRequest;
 use Stormpath\Http\HttpClientRequestExecutor;
-use Stormpath\Http\Psr7\HttplugPsr7RequestExecutor;
 use Stormpath\Http\Request;
 use Stormpath\Util\Magic;
 
@@ -302,17 +300,12 @@ class ClientBuilder extends Magic
 
         $apiKey = new ApiKey($apiKeyId, $apiKeySecret);
 
-        $signer = $this->resolveSigner();
-        $requestSigner = new $signer;
-
-        $executor = new HttplugPsr7RequestExecutor(HttpClientDiscovery::find(), $apiKey, $requestSigner);
-
         return new Client(
             $apiKey,
             $this->cacheManager,
             $this->cacheManagerOptions,
             $this->baseURL,
-            $executor
+            $this->authenticationScheme
         );
 
     }
@@ -418,18 +411,6 @@ class ClientBuilder extends Magic
         if (class_exists($cacheManagerPath)) {
             return $cacheManagerPath;
         }
-
-    }
-
-    private function resolveSigner()
-    {
-        $signer = "\\Stormpath\\Http\\Authc\\" . $this->authenticationScheme . "RequestSigner";
-
-        if (!class_exists($signer)) {
-            throw new \InvalidArgumentException('Authentication Scheme is not supported.');
-        }
-
-        return new $signer;
 
     }
 }

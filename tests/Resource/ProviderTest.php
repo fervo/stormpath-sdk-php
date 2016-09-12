@@ -222,15 +222,15 @@ class ProviderTest extends \Stormpath\Tests\TestCase
 
     public function testGoogleProviderAccount()
     {
-        $requestExecutor = $this->getMock('\Stormpath\Http\RequestExecutor');
+        $authentication = $this->getMock('\Http\Message\Authentication');
         $apiKey = $this->getMock('\Stormpath\ApiKey', array(), array("mockId", "mockSecret"));
         $cache = $this->getMock('\Cache\Taggable\TaggablePoolInterface');
         $dataStore = $this->getMock('\Stormpath\DataStore\DefaultDataStore',
-            array('create'), array($requestExecutor, $apiKey, $cache));
+            array('create'), array($apiKey, $authentication, $cache));
 
         $code = "4/XrsKzIJuy3ye57eqbanlQDN1wZHYfaUV-MFyC6dRjRw.wnCoOEKwnlwXXmXvfARQvthKMCbPmgI";
         $providerAccountRequest = new \Stormpath\Provider\GoogleProviderAccountRequest(array(
-            "code" => $code
+            "code" => $code,
         ));
 
         $providerData = $providerAccountRequest->getProviderData($dataStore);
@@ -262,15 +262,15 @@ class ProviderTest extends \Stormpath\Tests\TestCase
 
     public function testFacebookProviderAccount()
     {
-        $requestExecutor = $this->getMock('\Stormpath\Http\RequestExecutor');
+        $authentication = $this->getMock('\Http\Message\Authentication');
         $apiKey = $this->getMock('\Stormpath\ApiKey', array(), array("mockId", "mockSecret"));
         $cache = $this->getMock('\Cache\Taggable\TaggablePoolInterface');
         $dataStore = $this->getMock('\Stormpath\DataStore\DefaultDataStore',
-            array('create'), array($requestExecutor, $apiKey, $cache));
+            array('create'), array($apiKey, $authentication, $cache));
 
         $accessToken = "4/XrsKzIJuy3ye57eqbanlQDN1wZHYfaUV-MFyC6dRjRw.wnCoOEKwnlwXXmXvfARQvthKMCbPmgI";
         $providerAccountRequest = new \Stormpath\Provider\FacebookProviderAccountRequest(array(
-            "accessToken" => $accessToken
+            "accessToken" => $accessToken,
         ));
 
         $providerData = $providerAccountRequest->getProviderData($dataStore);
@@ -301,15 +301,15 @@ class ProviderTest extends \Stormpath\Tests\TestCase
 
     public function testGithubProviderAccount()
     {
-        $requestExecutor = $this->getMock('\Stormpath\Http\RequestExecutor');
+        $authentication = $this->getMock('\Http\Message\Authentication');
         $apiKey = $this->getMock('\Stormpath\ApiKey', array(), array("mockId", "mockSecret"));
         $cache = $this->getMock('\Cache\Taggable\TaggablePoolInterface');
         $dataStore = $this->getMock('\Stormpath\DataStore\DefaultDataStore',
-            array('create'), array($requestExecutor, $apiKey, $cache));
+            array('create'), array($apiKey, $authentication, $cache));
 
         $accessToken = "4/XrsKzIJuy3ye57eqbanlQDN1wZHYfaUV-MFyC6dRjRw.wnCoOEKwnlwXXmXvfARQvthKMCbPmgI";
         $providerAccountRequest = new \Stormpath\Provider\GithubProviderAccountRequest(array(
-            "accessToken" => $accessToken
+            "accessToken" => $accessToken,
         ));
 
         $providerData = $providerAccountRequest->getProviderData($dataStore);
@@ -340,15 +340,15 @@ class ProviderTest extends \Stormpath\Tests\TestCase
 
     public function testLinkedInProviderAccount()
     {
-        $requestExecutor = $this->getMock('\Stormpath\Http\RequestExecutor');
+        $authentication = $this->getMock('\Http\Message\Authentication');
         $apiKey = $this->getMock('\Stormpath\ApiKey', array(), array("mockId", "mockSecret"));
         $cache = $this->getMock('\Cache\Taggable\TaggablePoolInterface');
         $dataStore = $this->getMock('\Stormpath\DataStore\DefaultDataStore',
-            array('create'), array($requestExecutor, $apiKey, $cache));
+            array('create'), array($apiKey, $authentication, $cache));
 
         $accessToken = "4/XrsKzIJuy3ye57eqbanlQDN1wZHYfaUV-MFyC6dRjRw.wnCoOEKwnlwXXmXvfARQvthKMCbPmgI";
         $providerAccountRequest = new \Stormpath\Provider\LinkedInProviderAccountRequest(array(
-            "accessToken" => $accessToken
+            "accessToken" => $accessToken,
         ));
 
         $providerData = $providerAccountRequest->getProviderData($dataStore);

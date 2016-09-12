@@ -48,7 +48,9 @@
         "php-http/httplug": "^1.0",
         "guzzlehttp/psr7": "^1.3",
         "php-http/discovery": "^1.0",
-        "php-http/guzzle6-adapter": "^1.1"
+        "php-http/curl-client": "^1.0",
+        "php-http/message": "^1.3",
+        "php-http/client-common": "^1.2"
     },
     "require-dev": {
         "phpunit/phpunit": ">=4.0",
